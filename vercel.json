@@ -1,7 +1,9 @@
 {
   "version": 2,
+  "buildCommand": "",
+  "installCommand": "",
   "rewrites": [
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/jugar", "destination": "/index.html" }
+    { "source": "/admin", "destination": "/public/admin.html" },
+    { "source": "/jugar", "destination": "/public/index.html" }
   ]
 }
