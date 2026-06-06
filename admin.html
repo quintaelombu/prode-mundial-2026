@@ -79,7 +79,7 @@ td{padding:11px 12px;font-size:0.95rem;}
     <button class="btn" style="background:var(--red);color:#fff;width:100%" onclick="checkAdmin()">Ingresar →</button>
   </div>
 </div>
-<header><h1>⚙ Admin – Mundial 2026</h1></header>
+<header><h1>⚙️ Admin – Mundial 2026</h1></header>
 <div class="tabs">
   <button class="tab-btn active" onclick="showTab('jugadores',this)">👥 Jugadores</button>
   <button class="tab-btn" onclick="showTab('partidos',this)">🗓️ Resultados</button>
@@ -98,10 +98,10 @@ td{padding:11px 12px;font-size:0.95rem;}
   </div>
   <div class="card">
     <h2>🔗 Link para participantes</h2>
-    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">Código de acceso: <strong style="color:var(--gold)">2026</strong></p>
+    <p style="font-size:0.82rem;color:var(--muted);margin-bottom:12px">Código: <strong style="color:var(--gold)">2026</strong></p>
     <div style="background:var(--dark3);border:1px solid var(--border);border-radius:6px;padding:12px;font-family:'Barlow Condensed';font-size:1rem;word-break:break-all;" id="linkDisplay">Cargando...</div>
     <div class="flex" style="margin-top:10px">
-      <button class="btn sm" onclick="copyLink()">📋 Copiar link</button>
+      <button class="btn sm" onclick="copyLink()">📋 Copiar</button>
       <button class="btn green sm" onclick="shareWhatsApp()">💬 WhatsApp</button>
     </div>
   </div>
@@ -116,7 +116,7 @@ td{padding:11px 12px;font-size:0.95rem;}
 </div>
 <div id="tab-tabla" class="tab-panel">
   <div class="flex" style="margin-bottom:14px;justify-content:space-between">
-    <div><div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:3px">TABLA GENERAL</div></div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:3px">TABLA GENERAL</div>
     <button class="btn sm" onclick="calcularTodo()">🔄 Actualizar</button>
   </div>
   <div class="tabla-wrap">
@@ -132,20 +132,16 @@ td{padding:11px 12px;font-size:0.95rem;}
 </div>
 <div class="toast" id="toast"></div>
 <script>
-const KV_URL='https://aware-mink-143835.upstash.io';
-const KV_TOKEN='gQAAAAAAAjHbAAIgcDFkZDZmODNmZTlhOGE0OTIwYjY1Njg0ODJhYzRkYTYxNw';
 const ADMIN_PWD='admin2026';
+const API='/api/data';
 
-async function kvGet(key){
-  try{
-    const r=await fetch(`${KV_URL}/get/${encodeURIComponent(key)}`,{headers:{Authorization:`Bearer ${KV_TOKEN}`}});
-    const d=await r.json();
-    if(!d.result)return null;
-    try{return JSON.parse(d.result);}catch{return d.result;}
-  }catch{return null;}
-}
-async function kvSet(key,value){
-  await fetch(`${KV_URL}/set/${encodeURIComponent(key)}`,{method:'POST',headers:{Authorization:`Bearer ${KV_TOKEN}`,'Content-Type':'application/json'},body:JSON.stringify(JSON.stringify(value))});
+async function api(action,body){
+  if(body){
+    const r=await fetch(`${API}?action=${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    return r.json();
+  }
+  const r=await fetch(`${API}?action=${action}`);
+  return r.json();
 }
 
 const APUESTAS={'Grupos F1':10000,'Grupos F2':10000,'Grupos F3':10000,'16avos F1':15000,'16avos F2':15000,'16avos F3':15000,'Octavos':20000,'Cuartos':40000,'Semifinal':50000,'Final':100000};
@@ -188,14 +184,11 @@ function showTab(id,btn){
 
 async function loadAll(){
   try{
-    STATE.players=await kvGet('players')||[];
-    STATE.results=await kvGet('results')||{};
-    STATE.pts=await kvGet('pts')||{};
-    STATE.fechaWinners=await kvGet('fechaWinners')||{};
-    STATE.allPreds={};
-    for(const p of STATE.players){STATE.allPreds[p]=await kvGet(`preds:${p}`)||{};}
-    renderSetup();showToast('✅ Datos cargados');
-  }catch{showToast('❌ Error de conexión',true);}
+    const d=await api('all');
+    STATE=d;
+    renderSetup();
+    showToast('✅ Datos cargados');
+  }catch(e){showToast('❌ Error: '+e.message,true);}
 }
 
 function renderSetup(){
@@ -207,19 +200,27 @@ function renderSetup(){
     g.appendChild(inp);
   }
   document.getElementById('linkDisplay').textContent=`${location.origin}/jugar`;
-  document.getElementById('statusDiv').innerHTML=`<div>👥 Jugadores: <strong style="color:var(--gold)">${STATE.players.filter(Boolean).length}</strong> → ${STATE.players.filter(Boolean).join(', ')||'—'}</div><div>🔑 Código participantes: <strong style="color:var(--gold)">2026</strong></div><div>💰 Alias: <strong style="color:var(--green)">emigal.sj</strong></div>`;
+  document.getElementById('statusDiv').innerHTML=
+    `<div>👥 Jugadores: <strong style="color:var(--gold)">${STATE.players.filter(Boolean).length}</strong> → ${STATE.players.filter(Boolean).join(', ')||'—'}</div>
+     <div>🔑 Código participantes: <strong style="color:var(--gold)">2026</strong></div>
+     <div>💰 Alias cobro: <strong style="color:var(--green)">emigal.sj</strong></div>`;
 }
 
 async function savePlayers(){
   const players=Array.from(document.querySelectorAll('.inp[data-i]')).map(i=>i.value.trim()).filter(Boolean);
-  await kvSet('players',players);
-  STATE.players=players;
-  showToast('✅ Jugadores guardados');
-  renderSetup();
+  try{
+    await api('save_players',{players});
+    STATE.players=players;
+    showToast('✅ Jugadores guardados');
+    renderSetup();
+  }catch{showToast('❌ Error al guardar',true);}
 }
 
-function copyLink(){navigator.clipboard.writeText(`${location.origin}/jugar`).then(()=>showToast('✅ Link copiado'));}
-function shareWhatsApp(){const msg=`⚽ *Prode Mundial 2026*\n\n🔗 Entrá acá:\n${location.origin}/jugar\n\n🔑 Código: *2026*\n\n💰 Transferí al alias *emigal.sj*`;window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');}
+function copyLink(){navigator.clipboard.writeText(`${location.origin}/jugar`).then(()=>showToast('✅ Copiado'));}
+function shareWhatsApp(){
+  const msg=`⚽ *Prode Mundial 2026*\n\n🔗 Entrá acá:\n${location.origin}/jugar\n\n🔑 Código: *2026*\n\n💰 Transferí al alias *emigal.sj*`;
+  window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');
+}
 
 function renderPartidos(){
   const names=STATE.players.filter(Boolean);
@@ -237,7 +238,7 @@ function renderPartidos(){
         const pk=`${rk}_${ni}`;const preds=STATE.allPreds[name]||{};const pred=preds[`${fecha.id}_${mi}`]||{h:'—',a:'—'};
         const pts=STATE.pts[pk];
         let badge='';if(pts===3)badge='<span class="badge ex">+3</span>';else if(pts===1)badge='<span class="badge win">+1</span>';else if(pts===0&&res.h!=='')badge='<span class="badge miss">0</span>';
-        html+=`<div class="pred-item"><div class="pred-name">${name} ${badge}</div><div class="pred-val">${pred.h!==''?pred.h:'—'} – ${pred.a!==''?pred.a:'—'}</div></div>`;
+        html+=`<div class="pred-item"><div class="pred-name">${name} ${badge}</div><div class="pred-val">${pred.h!==undefined&&pred.h!==''?pred.h:'—'} – ${pred.a!==undefined&&pred.a!==''?pred.a:'—'}</div></div>`;
       });
       html+=`</div></div>`;
     });
@@ -249,7 +250,7 @@ async function saveRes(fechaId,mi,side,val){
   const k=`${fechaId}_${mi}`;
   if(!STATE.results[k])STATE.results[k]={h:'',a:''};
   STATE.results[k][side]=val;
-  await kvSet('results',STATE.results);
+  await api('save_results',{results:STATE.results});
 }
 
 async function calcularTodo(){
@@ -276,7 +277,7 @@ async function calcularTodo(){
     const share=Math.round((ap*names.length)/winners.length);
     STATE.fechaWinners[fecha.id]=winners.map(w=>({ni:w.ni,pts:w.t,amount:share}));
   });
-  await kvSet('pts',STATE.pts);await kvSet('fechaWinners',STATE.fechaWinners);
+  await api('save_pts',{pts:STATE.pts,fechaWinners:STATE.fechaWinners});
   renderPartidos();renderTabla();renderPozo();
   showToast('🔢 Calculado y guardado');
 }
@@ -290,7 +291,15 @@ function renderTabla(){
     return{name,pts,ex,win,fg,din};
   });
   scores.sort((a,b)=>b.pts-a.pts||b.ex-a.ex);
-  document.getElementById('tablaBody').innerHTML=scores.length?scores.map((s,i)=>`<tr><td class="rk ${i===0?'rk1':i===1?'rk2':i===2?'rk3':''}">${i+1}</td><td style="font-weight:600">${s.name}${i===0&&s.pts>0?' 🏆':''}</td><td class="c" style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${s.ex}</td><td class="c" style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${s.win}</td><td class="c pts-big">${s.pts}</td><td class="c">${s.fg}</td><td class="c money-cell">$${s.din.toLocaleString()}</td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Sin datos</td></tr>';
+  document.getElementById('tablaBody').innerHTML=scores.length?scores.map((s,i)=>`
+    <tr><td class="rk ${i===0?'rk1':i===1?'rk2':i===2?'rk3':''}">${i+1}</td>
+    <td style="font-weight:600">${s.name}${i===0&&s.pts>0?' 🏆':''}</td>
+    <td class="c" style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${s.ex}</td>
+    <td class="c" style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${s.win}</td>
+    <td class="c pts-big">${s.pts}</td>
+    <td class="c">${s.fg}</td>
+    <td class="c money-cell">$${s.din.toLocaleString()}</td></tr>`).join('')
+    :'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Sin datos</td></tr>';
 }
 
 function renderPozo(){
@@ -301,10 +310,19 @@ function renderPozo(){
     const ws=STATE.fechaWinners[fecha.id];
     let wHtml=`<span style="color:var(--muted);font-size:0.8rem">Pendiente</span>`;
     if(ws&&ws.length)wHtml=ws.map(w=>`<span class="winner-chip">${names[w.ni]||'?'} +$${w.amount.toLocaleString()}</span>`).join(' ');
-    html+=`<div style="background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div><div style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700">${fecha.label}</div><div style="font-size:0.72rem;color:var(--muted)">${fecha.partidos.length} partidos · $${ap.toLocaleString()} c/u</div></div><div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--green)">$${pozo.toLocaleString()}</div><div style="font-size:0.75rem;margin-top:2px">${wHtml}</div></div></div></div>`;
+    html+=`<div style="background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px">
+        <div><div style="font-family:'Barlow Condensed',sans-serif;font-size:0.95rem;font-weight:700">${fecha.label}</div>
+        <div style="font-size:0.72rem;color:var(--muted)">${fecha.partidos.length} partidos · $${ap.toLocaleString()} c/u</div></div>
+        <div style="text-align:right"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.3rem;color:var(--green)">$${pozo.toLocaleString()}</div>
+        <div style="font-size:0.75rem;margin-top:2px">${wHtml}</div></div>
+      </div></div>`;
   });
   const totalPozo=FECHAS.reduce((acc,f)=>acc+APUESTAS[f.tipo]*names.length,0);
-  html+=`<div style="background:rgba(245,200,66,0.05);border:1px solid rgba(245,200,66,0.3);border-radius:8px;padding:16px;margin-top:16px"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);letter-spacing:2px;margin-bottom:10px">TOTAL TORNEO</div><div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--muted);font-size:0.85rem">Total (${names.length} jugadores)</span><span style="font-family:'Bebas Neue',sans-serif;color:var(--gold)">$${totalPozo.toLocaleString()}</span></div></div>`;
+  html+=`<div style="background:rgba(245,200,66,0.05);border:1px solid rgba(245,200,66,0.3);border-radius:8px;padding:16px;margin-top:16px">
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);letter-spacing:2px;margin-bottom:10px">TOTAL TORNEO</div>
+    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--muted);font-size:0.85rem">Total (${names.length} jugadores)</span>
+    <span style="font-family:'Bebas Neue',sans-serif;color:var(--gold)">$${totalPozo.toLocaleString()}</span></div></div>`;
   document.getElementById('pozoDiv').innerHTML=html;
 }
 
