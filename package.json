@@ -1,7 +1,0 @@
-{
-  "name": "prode-mundial-2026",
-  "version": "1.0.0",
-  "dependencies": {
-    "@vercel/kv": "^1.0.0"
-  }
-}
