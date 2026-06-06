@@ -44,6 +44,13 @@ header p{font-size:0.75rem;color:var(--muted);letter-spacing:2px;text-transform:
 .pago-fecha-body{margin-top:10px;display:flex;flex-direction:column;gap:6px;}
 .pago-alias-row{display:flex;align-items:center;gap:10px;}
 .pago-alias{font-family:'Bebas Neue',sans-serif;font-size:1.4rem;color:var(--green);letter-spacing:2px;}
+.reveal{margin-top:10px;padding-top:10px;border-top:1px dashed var(--border);}
+.reveal-title{font-family:'Barlow Condensed',sans-serif;font-size:0.72rem;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:6px;}
+.reveal-row{display:flex;justify-content:space-between;align-items:center;padding:4px 8px;border-radius:5px;font-size:0.85rem;}
+.reveal-row.mine{background:rgba(245,200,66,0.1);}
+.reveal-name{font-family:'Barlow Condensed',sans-serif;color:var(--text);}
+.reveal-row.mine .reveal-name{color:var(--gold);font-weight:700;}
+.reveal-val{font-family:'Bebas Neue',sans-serif;font-size:1.05rem;color:var(--text);}
 .match-teams{font-family:'Barlow Condensed',sans-serif;font-size:1rem;font-weight:700;margin-bottom:6px;}
 .match-teams span{color:var(--muted);}
 .kickoff{font-size:0.7rem;color:var(--muted);font-family:'Barlow Condensed';letter-spacing:1px;margin-bottom:8px;}
@@ -125,13 +132,16 @@ f.push({id:'CUA',label:'Cuartos de Final',tipo:'Cuartos',partidos:Array.from({le
 f.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
 f.push({id:'FIN',label:'🏆 Gran Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});return f;}
 const FECHAS=buildFechas();
-let currentPlayer=null,myPreds={},players=[],kickoffs={},pagos={};
+let currentPlayer=null,myPreds={},players=[],kickoffs={},pagos={},allPreds={};
 function isLocked(key){const ko=kickoffs[key];if(!ko)return false;return Date.now()>=new Date(ko).getTime();}
 function checkPin(){const pin=document.getElementById('pinInput').value.trim().toUpperCase();if(pin===PIN){loadPlayers();}else{showToast('❌ Código incorrecto',true);}}
 document.getElementById('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')checkPin();});
 async function loadPlayers(){try{players=await kget('players')||[];kickoffs={...KICKOFFS_DEFAULT,...(await kget('kickoffs')||{})};
     pagos=await kget('pagos')||{};if(!players.length){showToast('⚠️ No hay jugadores aún',true);return;}showScreen('select');document.getElementById('playerList').innerHTML=players.map(p=>`<button class="player-opt" onclick="selectPlayer('${p}')">${p}</button>`).join('');}catch(e){showToast('❌ '+e.message,true);}}
-async function selectPlayer(name){currentPlayer=name;myPreds=await kget(`preds:${name}`)||{};renderForm();showScreen('form');}
+async function selectPlayer(name){currentPlayer=name;myPreds=await kget(`preds:${name}`)||{};
+  pagos=await kget('pagos')||{};
+  allPreds={};for(const p of players){allPreds[p]=(p===name)?myPreds:(await kget(`preds:${p}`)||{});}
+  renderForm();showScreen('form');}
 function goBack(){showScreen('select');currentPlayer=null;}
 function renderForm(){document.getElementById('welcomeMsg').textContent=`Hola, ${currentPlayer}! 👋`;updateProgress();let html='';
 FECHAS.forEach(fecha=>{const ap=APUESTAS[fecha.tipo];
@@ -139,7 +149,7 @@ html+=`<div class="fase-header"><span class="fase-title">${fecha.label}</span><s
 fecha.partidos.forEach((m,mi)=>{if(m.grupo!==cg){cg=m.grupo;if(fecha.id.startsWith('GRP'))html+=`<div class="grupo-label">— ${m.grupo} —</div>`;}
 const k=`${fecha.id}_${mi}`;const pred=myPreds[k]||{h:'',a:''};const locked=isLocked(k);const ko=kickoffs[k];
 let koTxt='';if(ko){const d=new Date(ko);koTxt=d.toLocaleString('es-AR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});}
-html+=`<div class="match-card${locked?' locked':''}"><div class="match-teams">${m.h} <span>vs</span> ${m.a} ${locked?'<span class="lock-badge">🔒 CERRADO</span>':''}</div>${ko?`<div class="kickoff${locked?' closed':''}">⏰ ${koTxt}${locked?' — ya empezó':''}</div>`:''}<div class="pred-row"><label>Mi prode</label><div class="score-wrap"><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.h}" id="ph_${k}" ${locked?'disabled':''} oninput="ls('${fecha.id}',${mi})"><span class="sep">—</span><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.a}" id="pa_${k}" ${locked?'disabled':''} oninput="ls('${fecha.id}',${mi})"></div></div></div>`;});
+html+=`<div class="match-card${locked?' locked':''}"><div class="match-teams">${m.h} <span>vs</span> ${m.a} ${locked?'<span class="lock-badge">🔒 CERRADO</span>':''}</div>${ko?`<div class="kickoff${locked?' closed':''}">⏰ ${koTxt}${locked?' — ya empezó':''}</div>`:''}<div class="pred-row"><label>Mi prode</label><div class="score-wrap"><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.h}" id="ph_${k}" ${locked?'disabled':''} oninput="ls('${fecha.id}',${mi})"><span class="sep">—</span><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.a}" id="pa_${k}" ${locked?'disabled':''} oninput="ls('${fecha.id}',${mi})"></div></div>${locked?revelarPreds(fecha.id,mi):''}</div>`;});
 const pagoKey=`${currentPlayer}|${fecha.id}`;const pagado=pagos[pagoKey];
 html+=`<div class="pago-fecha ${pagado?'ok':''}"><div class="pago-fecha-top"><span class="pago-fecha-monto">💰 Apuesta: <b>$${ap.toLocaleString()}</b></span>${pagado?'<span class="pago-chip ok">✅ PAGO APROBADO</span>':'<span class="pago-chip pend">⏳ PENDIENTE</span>'}</div>${pagado?'':`<div class="pago-fecha-body"><span style="font-size:0.78rem;color:var(--muted)">Transferí al alias y avisá:</span><div class="pago-alias-row"><span class="pago-alias">emigal.sj</span><button class="btn green sm" onclick="navigator.clipboard.writeText('emigal.sj').then(()=>showToast('✅ Alias copiado'))">📋 Copiar</button></div></div>`}</div>`;
 });
@@ -150,6 +160,20 @@ async function saveAllPreds(){if(!currentPlayer)return;const btn=document.getEle
 try{const fresh=await kget(`preds:${currentPlayer}`)||{};const merged={...myPreds};Object.keys(merged).forEach(k=>{if(isLocked(k)){if(fresh[k]!==undefined)merged[k]=fresh[k];else delete merged[k];}});
 await kset(`preds:${currentPlayer}`,merged);myPreds=merged;renderForm();showToast('✅ Pronósticos guardados');renderForm();}catch(e){showToast('❌ '+e.message,true);}
 btn.innerHTML='💾 Guardar pronósticos';btn.disabled=false;}
+function revelarPreds(fid,mi){
+  const k=`${fid}_${mi}`;
+  // solo jugadores que pagaron ESA fecha
+  const pagadores=players.filter(p=>pagos[`${p}|${fid}`]);
+  if(!pagadores.length)return '<div class="reveal"><div class="reveal-title">🔓 Pronósticos (al cerrar)</div><div style="font-size:0.78rem;color:var(--muted)">Nadie con pago aprobado en esta fecha aún.</div></div>';
+  let rows='';
+  pagadores.forEach(p=>{
+    const pr=(allPreds[p]||{})[k];
+    const val=(pr&&pr.h!==''&&pr.a!=='')?`${pr.h} - ${pr.a}`:'—';
+    const esMio=p===currentPlayer;
+    rows+=`<div class="reveal-row${esMio?' mine':''}"><span class="reveal-name">${p}${esMio?' (vos)':''}</span><span class="reveal-val">${val}</span></div>`;
+  });
+  return `<div class="reveal"><div class="reveal-title">🔓 Pronósticos de los que juegan</div>${rows}</div>`;
+}
 function showScreen(id){['login','select','form'].forEach(s=>document.getElementById(`screen-${s}`).classList.toggle('active',s===id));}
 function showToast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');setTimeout(()=>t.classList.remove('show'),2800);}
 </script>
