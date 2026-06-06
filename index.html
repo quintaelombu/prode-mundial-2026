@@ -122,35 +122,41 @@ header p{font-size:0.75rem;color:var(--muted);letter-spacing:2px;text-transform:
 <div class="toast" id="toast"></div>
 <script>
 const PIN='2026';
-const API='https://prode-mundial-2026-olive.vercel.app/api/data';
+const KV='https://aware-mink-143835.upstash.io';
+const TK='gQAAAAAAAjHbAAIgcDFkZDZmODNmZTlhOGE0OTIwYjY1Njg0ODJhYzRkYTYxNw';
 
-async function api(action,body){
-  if(body){
-    const r=await fetch(`${API}?action=${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    return r.json();
-  }
-  const r=await fetch(`${API}?action=${action}`);
+async function kget(k){
+  const r=await fetch(`${KV}/get/${encodeURIComponent(k)}`,{headers:{Authorization:`Bearer ${TK}`}});
+  const d=await r.json();
+  if(!d.result)return null;
+  let v=d.result;
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}
+  return v;
+}
+async function kset(k,v){
+  const r=await fetch(`${KV}/set/${encodeURIComponent(k)}`,{method:'POST',headers:{Authorization:`Bearer ${TK}`,'Content-Type':'application/json'},body:JSON.stringify(JSON.stringify(v))});
   return r.json();
 }
 
 const APUESTAS={'Grupos F1':10000,'Grupos F2':10000,'Grupos F3':10000,'16avos F1':15000,'16avos F2':15000,'16avos F3':15000,'Octavos':20000,'Cuartos':40000,'Semifinal':50000,'Final':100000};
 const GRUPOS={A:['México','Sudáfrica','Corea del Sur','Rep. Checa'],B:['Canadá','Qatar','Suiza','Bosnia y Herz.'],C:['Brasil','Marruecos','Haití','Escocia'],D:['Estados Unidos','Paraguay','Australia','Turquía'],E:['Alemania','Curazao','Costa de Marfil','Ecuador'],F:['Países Bajos','Japón','Túnez','Suecia'],G:['Bélgica','Egipto','Irán','Nueva Zelanda'],H:['España','Cabo Verde','Arabia Saudita','Uruguay'],I:['Francia','Senegal','Irak','Noruega'],J:['Argentina','Argelia','Austria','Jordania'],K:['Portugal','Colombia','Uzbekistán','RD Congo'],L:['Inglaterra','Croacia','Ghana','Panamá']};
 
-function getGrupoPartidos(eq){return[[{h:eq[0],a:eq[1]},{h:eq[2],a:eq[3]}],[{h:eq[0],a:eq[2]},{h:eq[1],a:eq[3]}],[{h:eq[0],a:eq[3]},{h:eq[1],a:eq[2]}]];}
+function gp(eq){return[[{h:eq[0],a:eq[1]},{h:eq[2],a:eq[3]}],[{h:eq[0],a:eq[2]},{h:eq[1],a:eq[3]}],[{h:eq[0],a:eq[3]},{h:eq[1],a:eq[2]}]];}
 function buildFechas(){
-  const fechas=[];
-  ['F1','F2','F3'].forEach((f,fi)=>{
-    const fecha={id:`GRP_${f}`,label:`Fase de Grupos – Fecha ${fi+1}`,tipo:`Grupos F${fi+1}`,partidos:[]};
-    Object.entries(GRUPOS).forEach(([g,eq])=>{getGrupoPartidos(eq)[fi].forEach(p=>fecha.partidos.push({...p,grupo:`Grupo ${g}`}));});
-    fechas.push(fecha);
+  const f=[];
+  ['F1','F2','F3'].forEach((x,i)=>{
+    const fd={id:`GRP_${x}`,label:`Fase de Grupos – Fecha ${i+1}`,tipo:`Grupos F${i+1}`,partidos:[]};
+    Object.entries(GRUPOS).forEach(([g,eq])=>{gp(eq)[i].forEach(p=>fd.partidos.push({...p,grupo:`Grupo ${g}`}));});
+    f.push(fd);
   });
   const s16=[{h:'1A',a:'2B'},{h:'1B',a:'2A'},{h:'1C',a:'2D'},{h:'1D',a:'2C'},{h:'1E',a:'2F'},{h:'1F',a:'2E'},{h:'1G',a:'2H'},{h:'1H',a:'2G'},{h:'1I',a:'2J'},{h:'1J',a:'2I'},{h:'1K',a:'2L'},{h:'1L',a:'2K'},{h:'3a',a:'3b'},{h:'3c',a:'3d'},{h:'3e',a:'3f'},{h:'3g',a:'3h'}];
-  [[0,5],[6,10],[11,15]].forEach(([ini,fin],fi)=>{fechas.push({id:`S16_F${fi+1}`,label:`16avos – Fecha ${fi+1}`,tipo:`16avos F${fi+1}`,partidos:s16.slice(ini,fin+1).map(p=>({...p,grupo:'16avos'}))});});
-  fechas.push({id:'OCT',label:'Octavos de Final',tipo:'Octavos',partidos:Array.from({length:8},(_,i)=>({h:`G${i*2+1}`,a:`G${i*2+2}`,grupo:'Octavos'}))});
-  fechas.push({id:'CUA',label:'Cuartos de Final',tipo:'Cuartos',partidos:Array.from({length:4},(_,i)=>({h:`CU${i*2+1}`,a:`CU${i*2+2}`,grupo:'Cuartos'}))});
-  fechas.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
-  fechas.push({id:'FIN',label:'🏆 Gran Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});
-  return fechas;
+  [[0,5],[6,10],[11,15]].forEach(([a,b],i)=>{f.push({id:`S16_F${i+1}`,label:`16avos – Fecha ${i+1}`,tipo:`16avos F${i+1}`,partidos:s16.slice(a,b+1).map(p=>({...p,grupo:'16avos'}))});});
+  f.push({id:'OCT',label:'Octavos de Final',tipo:'Octavos',partidos:Array.from({length:8},(_,i)=>({h:`G${i*2+1}`,a:`G${i*2+2}`,grupo:'Octavos'}))});
+  f.push({id:'CUA',label:'Cuartos de Final',tipo:'Cuartos',partidos:Array.from({length:4},(_,i)=>({h:`CU${i*2+1}`,a:`CU${i*2+2}`,grupo:'Cuartos'}))});
+  f.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
+  f.push({id:'FIN',label:'🏆 Gran Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});
+  return f;
 }
 const FECHAS=buildFechas();
 let currentPlayer=null,myPreds={},players=[];
@@ -164,11 +170,10 @@ document.getElementById('pinInput').addEventListener('keydown',e=>{if(e.key==='E
 
 async function loadPlayers(){
   try{
-    const d=await api('players');
-    players=d.players||[];
-    if(!players.length){showToast('⚠️ No hay jugadores aún. Pedile al admin que los configure.',true);return;}
+    players=await kget('players')||[];
+    if(!players.length){showToast('⚠️ No hay jugadores aún.',true);return;}
     renderSelectScreen();
-  }catch{showToast('❌ Error de conexión',true);}
+  }catch(e){showToast('❌ Error: '+e.message,true);}
 }
 
 function renderSelectScreen(){
@@ -178,7 +183,7 @@ function renderSelectScreen(){
 
 async function selectPlayer(name){
   currentPlayer=name;
-  try{const d=await fetch(`${API}?action=predictions&player=${encodeURIComponent(name)}`).then(r=>r.json());myPreds=d.preds||{};}catch{myPreds={};}
+  myPreds=await kget(`preds:${name}`)||{};
   renderForm();showScreen('form');
 }
 
@@ -192,20 +197,20 @@ function renderForm(){
   FECHAS.forEach(fecha=>{
     const ap=APUESTAS[fecha.tipo];
     html+=`<div class="fase-header"><span class="fase-title">${fecha.label}</span><span class="fase-apuesta">💰 $${ap.toLocaleString()}</span></div>`;
-    let curGrupo='';
+    let cg='';
     fecha.partidos.forEach((m,mi)=>{
-      if(m.grupo!==curGrupo){curGrupo=m.grupo;if(fecha.id.startsWith('GRP'))html+=`<div class="grupo-label">— ${m.grupo} —</div>`;}
+      if(m.grupo!==cg){cg=m.grupo;if(fecha.id.startsWith('GRP'))html+=`<div class="grupo-label">— ${m.grupo} —</div>`;}
       const k=`${fecha.id}_${mi}`;const pred=myPreds[k]||{h:'',a:''};
-      html+=`<div class="match-card"><div class="match-teams">${m.h} <span>vs</span> ${m.a}</div><div class="pred-row"><label>Mi prode</label><div class="score-wrap"><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.h}" id="ph_${fecha.id}_${mi}" oninput="localSave('${fecha.id}',${mi})"><span class="sep">—</span><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.a}" id="pa_${fecha.id}_${mi}" oninput="localSave('${fecha.id}',${mi})"></div></div></div>`;
+      html+=`<div class="match-card"><div class="match-teams">${m.h} <span>vs</span> ${m.a}</div><div class="pred-row"><label>Mi prode</label><div class="score-wrap"><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.h}" id="ph_${fecha.id}_${mi}" oninput="ls('${fecha.id}',${mi})"><span class="sep">—</span><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${pred.a}" id="pa_${fecha.id}_${mi}" oninput="ls('${fecha.id}',${mi})"></div></div></div>`;
     });
   });
   document.getElementById('formContent').innerHTML=html;
 }
 
-function localSave(fechaId,mi){
-  const h=document.getElementById(`ph_${fechaId}_${mi}`)?.value||'';
-  const a=document.getElementById(`pa_${fechaId}_${mi}`)?.value||'';
-  myPreds[`${fechaId}_${mi}`]={h,a};updateProgress();
+function ls(fid,mi){
+  const h=document.getElementById(`ph_${fid}_${mi}`)?.value||'';
+  const a=document.getElementById(`pa_${fid}_${mi}`)?.value||'';
+  myPreds[`${fid}_${mi}`]={h,a};updateProgress();
 }
 
 function updateProgress(){
@@ -213,7 +218,7 @@ function updateProgress(){
   const filled=Object.values(myPreds).filter(p=>p.h!==''&&p.a!=='').length;
   const pct=Math.round((filled/total)*100);
   document.getElementById('progressFill').style.width=pct+'%';
-  document.getElementById('progressMsg').textContent=`${filled} de ${total} partidos completados (${pct}%)`;
+  document.getElementById('progressMsg').textContent=`${filled} de ${total} completados (${pct}%)`;
 }
 
 async function saveAllPreds(){
@@ -221,11 +226,11 @@ async function saveAllPreds(){
   const btn=document.getElementById('saveBtn');
   btn.innerHTML='<span class="spinner"></span> Guardando...';btn.disabled=true;
   try{
-    await api('save_prediction',{player:currentPlayer,preds:myPreds});
+    await kset(`preds:${currentPlayer}`,myPreds);
     showToast('✅ Pronósticos guardados');
     document.getElementById('pagoCard').classList.add('visible');
     setTimeout(()=>document.getElementById('pagoCard').scrollIntoView({behavior:'smooth'}),300);
-  }catch{showToast('❌ Error al guardar',true);}
+  }catch(e){showToast('❌ Error: '+e.message,true);}
   btn.innerHTML='💾 Guardar pronósticos';btn.disabled=false;
 }
 

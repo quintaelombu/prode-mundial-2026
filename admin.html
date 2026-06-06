@@ -133,35 +133,41 @@ td{padding:11px 12px;font-size:0.95rem;}
 <div class="toast" id="toast"></div>
 <script>
 const ADMIN_PWD='admin2026';
-const API='https://prode-mundial-2026-olive.vercel.app/api/data';
+const KV='https://aware-mink-143835.upstash.io';
+const TK='gQAAAAAAAjHbAAIgcDFkZDZmODNmZTlhOGE0OTIwYjY1Njg0ODJhYzRkYTYxNw';
 
-async function api(action,body){
-  if(body){
-    const r=await fetch(`${API}?action=${action}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    return r.json();
-  }
-  const r=await fetch(`${API}?action=${action}`);
+async function kget(k){
+  const r=await fetch(`${KV}/get/${encodeURIComponent(k)}`,{headers:{Authorization:`Bearer ${TK}`}});
+  const d=await r.json();
+  if(!d.result)return null;
+  let v=d.result;
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}
+  if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}
+  return v;
+}
+async function kset(k,v){
+  const r=await fetch(`${KV}/set/${encodeURIComponent(k)}`,{method:'POST',headers:{Authorization:`Bearer ${TK}`,'Content-Type':'application/json'},body:JSON.stringify(JSON.stringify(v))});
   return r.json();
 }
 
 const APUESTAS={'Grupos F1':10000,'Grupos F2':10000,'Grupos F3':10000,'16avos F1':15000,'16avos F2':15000,'16avos F3':15000,'Octavos':20000,'Cuartos':40000,'Semifinal':50000,'Final':100000};
 const GRUPOS={A:['México','Sudáfrica','Corea del Sur','Rep. Checa'],B:['Canadá','Qatar','Suiza','Bosnia y Herz.'],C:['Brasil','Marruecos','Haití','Escocia'],D:['Estados Unidos','Paraguay','Australia','Turquía'],E:['Alemania','Curazao','Costa de Marfil','Ecuador'],F:['Países Bajos','Japón','Túnez','Suecia'],G:['Bélgica','Egipto','Irán','Nueva Zelanda'],H:['España','Cabo Verde','Arabia Saudita','Uruguay'],I:['Francia','Senegal','Irak','Noruega'],J:['Argentina','Argelia','Austria','Jordania'],K:['Portugal','Colombia','Uzbekistán','RD Congo'],L:['Inglaterra','Croacia','Ghana','Panamá']};
 
-function getGrupoPartidos(eq){return[[{h:eq[0],a:eq[1]},{h:eq[2],a:eq[3]}],[{h:eq[0],a:eq[2]},{h:eq[1],a:eq[3]}],[{h:eq[0],a:eq[3]},{h:eq[1],a:eq[2]}]];}
+function gp(eq){return[[{h:eq[0],a:eq[1]},{h:eq[2],a:eq[3]}],[{h:eq[0],a:eq[2]},{h:eq[1],a:eq[3]}],[{h:eq[0],a:eq[3]},{h:eq[1],a:eq[2]}]];}
 function buildFechas(){
-  const fechas=[];
-  ['F1','F2','F3'].forEach((f,fi)=>{
-    const fecha={id:`GRP_${f}`,label:`Grupos Fecha ${fi+1}`,tipo:`Grupos F${fi+1}`,partidos:[]};
-    Object.entries(GRUPOS).forEach(([g,eq])=>{getGrupoPartidos(eq)[fi].forEach(p=>fecha.partidos.push({...p,grupo:`Grupo ${g}`}));});
-    fechas.push(fecha);
+  const f=[];
+  ['F1','F2','F3'].forEach((x,i)=>{
+    const fd={id:`GRP_${x}`,label:`Grupos Fecha ${i+1}`,tipo:`Grupos F${i+1}`,partidos:[]};
+    Object.entries(GRUPOS).forEach(([g,eq])=>{gp(eq)[i].forEach(p=>fd.partidos.push({...p,grupo:`Grupo ${g}`}));});
+    f.push(fd);
   });
   const s16=[{h:'1A',a:'2B'},{h:'1B',a:'2A'},{h:'1C',a:'2D'},{h:'1D',a:'2C'},{h:'1E',a:'2F'},{h:'1F',a:'2E'},{h:'1G',a:'2H'},{h:'1H',a:'2G'},{h:'1I',a:'2J'},{h:'1J',a:'2I'},{h:'1K',a:'2L'},{h:'1L',a:'2K'},{h:'3a',a:'3b'},{h:'3c',a:'3d'},{h:'3e',a:'3f'},{h:'3g',a:'3h'}];
-  [[0,5],[6,10],[11,15]].forEach(([ini,fin],fi)=>{fechas.push({id:`S16_F${fi+1}`,label:`16avos Fecha ${fi+1}`,tipo:`16avos F${fi+1}`,partidos:s16.slice(ini,fin+1).map(p=>({...p,grupo:'16avos'}))});});
-  fechas.push({id:'OCT',label:'Octavos',tipo:'Octavos',partidos:Array.from({length:8},(_,i)=>({h:`G${i*2+1}`,a:`G${i*2+2}`,grupo:'Octavos'}))});
-  fechas.push({id:'CUA',label:'Cuartos',tipo:'Cuartos',partidos:Array.from({length:4},(_,i)=>({h:`CU${i*2+1}`,a:`CU${i*2+2}`,grupo:'Cuartos'}))});
-  fechas.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
-  fechas.push({id:'FIN',label:'🏆 Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});
-  return fechas;
+  [[0,5],[6,10],[11,15]].forEach(([a,b],i)=>{f.push({id:`S16_F${i+1}`,label:`16avos Fecha ${i+1}`,tipo:`16avos F${i+1}`,partidos:s16.slice(a,b+1).map(p=>({...p,grupo:'16avos'}))});});
+  f.push({id:'OCT',label:'Octavos',tipo:'Octavos',partidos:Array.from({length:8},(_,i)=>({h:`G${i*2+1}`,a:`G${i*2+2}`,grupo:'Octavos'}))});
+  f.push({id:'CUA',label:'Cuartos',tipo:'Cuartos',partidos:Array.from({length:4},(_,i)=>({h:`CU${i*2+1}`,a:`CU${i*2+2}`,grupo:'Cuartos'}))});
+  f.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
+  f.push({id:'FIN',label:'🏆 Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});
+  return f;
 }
 const FECHAS=buildFechas();
 let STATE={players:[],results:{},pts:{},fechaWinners:{},allPreds:{}};
@@ -184,8 +190,12 @@ function showTab(id,btn){
 
 async function loadAll(){
   try{
-    const d=await api('all');
-    STATE=d;
+    STATE.players=await kget('players')||[];
+    STATE.results=await kget('results')||{};
+    STATE.pts=await kget('pts')||{};
+    STATE.fechaWinners=await kget('fechaWinners')||{};
+    STATE.allPreds={};
+    for(const p of STATE.players){STATE.allPreds[p]=await kget(`preds:${p}`)||{};}
     renderSetup();
     showToast('✅ Datos cargados');
   }catch(e){showToast('❌ Error: '+e.message,true);}
@@ -202,18 +212,18 @@ function renderSetup(){
   document.getElementById('linkDisplay').textContent=`${location.origin}/jugar`;
   document.getElementById('statusDiv').innerHTML=
     `<div>👥 Jugadores: <strong style="color:var(--gold)">${STATE.players.filter(Boolean).length}</strong> → ${STATE.players.filter(Boolean).join(', ')||'—'}</div>
-     <div>🔑 Código participantes: <strong style="color:var(--gold)">2026</strong></div>
-     <div>💰 Alias cobro: <strong style="color:var(--green)">emigal.sj</strong></div>`;
+     <div>🔑 Código: <strong style="color:var(--gold)">2026</strong></div>
+     <div>💰 Alias: <strong style="color:var(--green)">emigal.sj</strong></div>`;
 }
 
 async function savePlayers(){
   const players=Array.from(document.querySelectorAll('.inp[data-i]')).map(i=>i.value.trim()).filter(Boolean);
   try{
-    await api('save_players',{players});
+    await kset('players',players);
     STATE.players=players;
     showToast('✅ Jugadores guardados');
     renderSetup();
-  }catch{showToast('❌ Error al guardar',true);}
+  }catch(e){showToast('❌ Error: '+e.message,true);}
 }
 
 function copyLink(){navigator.clipboard.writeText(`${location.origin}/jugar`).then(()=>showToast('✅ Copiado'));}
@@ -229,16 +239,16 @@ function renderPartidos(){
   FECHAS.forEach(fecha=>{
     const ap=APUESTAS[fecha.tipo];
     html+=`<div class="fase-header"><span class="fase-title">${fecha.label}</span><span class="fase-apuesta">💰 $${ap.toLocaleString()} · Pozo: $${(ap*names.length).toLocaleString()}</span></div>`;
-    let curGrupo='';
+    let cg='';
     fecha.partidos.forEach((m,mi)=>{
-      if(m.grupo!==curGrupo){curGrupo=m.grupo;if(fecha.id.startsWith('GRP'))html+=`<div class="grupo-label">— ${m.grupo} —</div>`;}
+      if(m.grupo!==cg){cg=m.grupo;if(fecha.id.startsWith('GRP'))html+=`<div class="grupo-label">— ${m.grupo} —</div>`;}
       const rk=`${fecha.id}_${mi}`;const res=STATE.results[rk]||{h:'',a:''};
       html+=`<div class="match-card"><div class="match-top"><div class="match-teams">${m.h} <span style="color:var(--muted)">vs</span> ${m.a}</div><div class="result-row"><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${res.h}" onchange="saveRes('${fecha.id}',${mi},'h',this.value)"><span class="sep">:</span><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${res.a}" onchange="saveRes('${fecha.id}',${mi},'a',this.value)"><span class="real-label">REAL</span></div></div><div class="preds-grid">`;
       names.forEach((name,ni)=>{
-        const pk=`${rk}_${ni}`;const preds=STATE.allPreds[name]||{};const pred=preds[`${fecha.id}_${mi}`]||{h:'—',a:'—'};
+        const pk=`${rk}_${ni}`;const preds=STATE.allPreds[name]||{};const pred=preds[`${fecha.id}_${mi}`]||{h:'',a:''};
         const pts=STATE.pts[pk];
         let badge='';if(pts===3)badge='<span class="badge ex">+3</span>';else if(pts===1)badge='<span class="badge win">+1</span>';else if(pts===0&&res.h!=='')badge='<span class="badge miss">0</span>';
-        html+=`<div class="pred-item"><div class="pred-name">${name} ${badge}</div><div class="pred-val">${pred.h!==undefined&&pred.h!==''?pred.h:'—'} – ${pred.a!==undefined&&pred.a!==''?pred.a:'—'}</div></div>`;
+        html+=`<div class="pred-item"><div class="pred-name">${name} ${badge}</div><div class="pred-val">${pred.h!==''?pred.h:'—'} – ${pred.a!==''?pred.a:'—'}</div></div>`;
       });
       html+=`</div></div>`;
     });
@@ -250,7 +260,7 @@ async function saveRes(fechaId,mi,side,val){
   const k=`${fechaId}_${mi}`;
   if(!STATE.results[k])STATE.results[k]={h:'',a:''};
   STATE.results[k][side]=val;
-  await api('save_results',{results:STATE.results});
+  await kset('results',STATE.results);
 }
 
 async function calcularTodo(){
@@ -277,7 +287,8 @@ async function calcularTodo(){
     const share=Math.round((ap*names.length)/winners.length);
     STATE.fechaWinners[fecha.id]=winners.map(w=>({ni:w.ni,pts:w.t,amount:share}));
   });
-  await api('save_pts',{pts:STATE.pts,fechaWinners:STATE.fechaWinners});
+  await kset('pts',STATE.pts);
+  await kset('fechaWinners',STATE.fechaWinners);
   renderPartidos();renderTabla();renderPozo();
   showToast('🔢 Calculado y guardado');
 }
@@ -296,8 +307,7 @@ function renderTabla(){
     <td style="font-weight:600">${s.name}${i===0&&s.pts>0?' 🏆':''}</td>
     <td class="c" style="color:var(--green);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${s.ex}</td>
     <td class="c" style="color:var(--gold);font-family:'Bebas Neue',sans-serif;font-size:1.1rem">${s.win}</td>
-    <td class="c pts-big">${s.pts}</td>
-    <td class="c">${s.fg}</td>
+    <td class="c pts-big">${s.pts}</td><td class="c">${s.fg}</td>
     <td class="c money-cell">$${s.din.toLocaleString()}</td></tr>`).join('')
     :'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Sin datos</td></tr>';
 }
@@ -321,7 +331,8 @@ function renderPozo(){
   const totalPozo=FECHAS.reduce((acc,f)=>acc+APUESTAS[f.tipo]*names.length,0);
   html+=`<div style="background:rgba(245,200,66,0.05);border:1px solid rgba(245,200,66,0.3);border-radius:8px;padding:16px;margin-top:16px">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:1.1rem;color:var(--gold);letter-spacing:2px;margin-bottom:10px">TOTAL TORNEO</div>
-    <div style="display:flex;justify-content:space-between;padding:6px 0"><span style="color:var(--muted);font-size:0.85rem">Total (${names.length} jugadores)</span>
+    <div style="display:flex;justify-content:space-between;padding:6px 0">
+    <span style="color:var(--muted);font-size:0.85rem">Total (${names.length} jugadores)</span>
     <span style="font-family:'Bebas Neue',sans-serif;color:var(--gold)">$${totalPozo.toLocaleString()}</span></div></div>`;
   document.getElementById('pozoDiv').innerHTML=html;
 }
