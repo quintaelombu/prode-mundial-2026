@@ -87,6 +87,7 @@ td{padding:11px 12px;font-size:0.95rem;}
   <button class="tab-btn" onclick="showTab('partidos',this)">🗓️ Partidos</button>
   <button class="tab-btn" onclick="showTab('tabla',this)">🏆 Tabla</button>
   <button class="tab-btn" onclick="showTab('pozo',this)">💰 Pozo</button>
+  <button class="tab-btn" onclick="showTab('pagos',this)">💵 Pagos</button>
 </div>
 <div id="tab-jugadores" class="tab-panel active">
   <div class="card"><h2>👥 Jugadores</h2><p class="hint">Hasta 12. Escribí los nombres y guardá.</p><div class="pgrid" id="pGrid"></div>
@@ -111,6 +112,11 @@ td{padding:11px 12px;font-size:0.95rem;}
   <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:3px;margin-bottom:14px">💰 POZOS</div>
   <div id="pozoDiv"></div>
 </div>
+<div id="tab-pagos" class="tab-panel">
+  <div class="flex" style="margin-bottom:14px;justify-content:space-between"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:3px">💵 CONTROL DE PAGOS</div><button class="btn sm" onclick="savePagos()">💾 Guardar pagos</button></div>
+  <p class="hint">Tocá el casillero para marcar que el jugador pagó esa fecha. Verde = pagado.</p>
+  <div class="tabla-wrap"><table id="pagosTable"></table></div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 const ADMIN_PWD='admin2026';
@@ -131,11 +137,12 @@ f.push({id:'CUA',label:'Cuartos',tipo:'Cuartos',partidos:Array.from({length:4},(
 f.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
 f.push({id:'FIN',label:'🏆 Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});return f;}
 const FECHAS=buildFechas();
-let STATE={players:[],results:{},pts:{},fechaWinners:{},allPreds:{},kickoffs:{}};
+let STATE={players:[],results:{},pts:{},fechaWinners:{},allPreds:{},kickoffs:{},pagos:{}};
 function checkAdmin(){if(document.getElementById('adminPwd').value===ADMIN_PWD){document.getElementById('adminLogin').style.display='none';loadAll();}else{showToast('❌ Contraseña incorrecta',true);}}
 document.getElementById('adminPwd').addEventListener('keydown',e=>{if(e.key==='Enter')checkAdmin();});
-function showTab(id,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='partidos')renderPartidos();if(id==='tabla')renderTabla();if(id==='pozo')renderPozo();}
-async function loadAll(){try{STATE.players=await kget('players')||[];STATE.results=await kget('results')||{};STATE.pts=await kget('pts')||{};STATE.fechaWinners=await kget('fechaWinners')||{};STATE.kickoffs={...KICKOFFS_DEFAULT,...(await kget('kickoffs')||{})};STATE.allPreds={};for(const p of STATE.players){STATE.allPreds[p]=await kget(`preds:${p}`)||{};}renderSetup();showToast('✅ Datos cargados');}catch(e){showToast('❌ '+e.message,true);}}
+function showTab(id,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='partidos')renderPartidos();if(id==='tabla')renderTabla();if(id==='pozo')renderPozo();if(id==='pagos')renderPagos();}
+async function loadAll(){try{STATE.players=await kget('players')||[];STATE.results=await kget('results')||{};STATE.pts=await kget('pts')||{};STATE.fechaWinners=await kget('fechaWinners')||{};STATE.kickoffs={...KICKOFFS_DEFAULT,...(await kget('kickoffs')||{})};
+    STATE.pagos=await kget('pagos')||{};STATE.allPreds={};for(const p of STATE.players){STATE.allPreds[p]=await kget(`preds:${p}`)||{};}renderSetup();showToast('✅ Datos cargados');}catch(e){showToast('❌ '+e.message,true);}}
 function renderSetup(){const g=document.getElementById('pGrid');g.innerHTML='';for(let i=0;i<12;i++){const inp=document.createElement('input');inp.type='text';inp.className='inp';inp.placeholder=`Jugador ${i+1}`;inp.value=STATE.players[i]||'';inp.dataset.i=i;g.appendChild(inp);}
 document.getElementById('linkDisplay').textContent=`${location.origin}${location.pathname.replace('admin.html','')}`.replace(/\/$/,'')+'/';
 document.getElementById('statusDiv').innerHTML=`<div>👥 Jugadores: <strong style="color:var(--gold)">${STATE.players.length}</strong> → ${STATE.players.join(', ')||'—'}</div><div>⏰ Horarios cargados: <strong style="color:var(--gold)">${Object.keys(STATE.kickoffs).length}</strong></div><div>🔑 Código: <strong style="color:var(--gold)">2026</strong> · 💰 Alias: <strong style="color:var(--green)">emigal.sj</strong></div>`;}
@@ -159,7 +166,7 @@ async function saveKickoffs(){try{await kset('kickoffs',STATE.kickoffs);showToas
 async function saveRes(rk,side,val){if(!STATE.results[rk])STATE.results[rk]={h:'',a:''};STATE.results[rk][side]=val;await kset('results',STATE.results);}
 async function calcularTodo(){const names=STATE.players;STATE.pts={};STATE.fechaWinners={};
 FECHAS.forEach(fecha=>{const ap=APUESTAS[fecha.tipo];fecha.partidos.forEach((m,mi)=>{const rk=`${fecha.id}_${mi}`;const res=STATE.results[rk];if(!res||res.h===''||res.a==='')return;const rh=parseInt(res.h),ra=parseInt(res.a),rw=rh>ra?'H':ra>rh?'A':'D';
-names.forEach((name,ni)=>{const preds=STATE.allPreds[name]||{};const pred=preds[rk];if(!pred||pred.h===''||pred.a==='')return;const ph=parseInt(pred.h),pa=parseInt(pred.a),pw=ph>pa?'H':pa>ph?'A':'D';if(ph===rh&&pa===ra)STATE.pts[`${rk}_${ni}`]=3;else if(pw===rw)STATE.pts[`${rk}_${ni}`]=1;else STATE.pts[`${rk}_${ni}`]=0;});});
+names.forEach((name,ni)=>{if(!STATE.pagos[`${name}|${fecha.id}`])return;const preds=STATE.allPreds[name]||{};const pred=preds[rk];if(!pred||pred.h===''||pred.a==='')return;const ph=parseInt(pred.h),pa=parseInt(pred.a),pw=ph>pa?'H':pa>ph?'A':'D';if(ph===rh&&pa===ra)STATE.pts[`${rk}_${ni}`]=3;else if(pw===rw)STATE.pts[`${rk}_${ni}`]=1;else STATE.pts[`${rk}_${ni}`]=0;});});
 const tieneRes=fecha.partidos.some((_,mi)=>{const r=STATE.results[`${fecha.id}_${mi}`];return r&&r.h!==''&&r.a!=='';});if(!tieneRes)return;
 const totales=names.map((_,ni)=>{let t=0;fecha.partidos.forEach((_,mi)=>{const p=STATE.pts[`${fecha.id}_${mi}_${ni}`];if(p>0)t+=p;});return t;});
 const maxPts=Math.max(...totales);if(maxPts<=0)return;const winners=totales.map((t,ni)=>({ni,t})).filter(x=>x.t===maxPts);const share=Math.round((ap*names.length)/winners.length);
@@ -171,6 +178,27 @@ document.getElementById('tablaBody').innerHTML=scores.length?scores.map((s,i)=>`
 function renderPozo(){const names=STATE.players;let html='';FECHAS.forEach(fecha=>{const ap=APUESTAS[fecha.tipo],pozo=ap*names.length;const ws=STATE.fechaWinners[fecha.id];let wHtml='<span style="color:var(--muted);font-size:0.8rem">Pendiente</span>';if(ws&&ws.length)wHtml=ws.map(w=>`<span class="winner-chip">${names[w.ni]||'?'} +$${w.amount.toLocaleString()}</span>`).join(' ');
 html+=`<div style="background:var(--dark2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div><div style="font-family:Barlow Condensed;font-size:0.95rem;font-weight:700">${fecha.label}</div><div style="font-size:0.72rem;color:var(--muted)">${fecha.partidos.length} partidos · $${ap.toLocaleString()} c/u</div></div><div style="text-align:right"><div style="font-family:Bebas Neue;font-size:1.3rem;color:var(--green)">$${pozo.toLocaleString()}</div><div style="font-size:0.75rem;margin-top:2px">${wHtml}</div></div></div></div>`;});
 document.getElementById('pozoDiv').innerHTML=html;}
+function renderPagos(){
+  const names=STATE.players;
+  if(!names.length){document.getElementById('pagosTable').innerHTML='<tr><td class="hint" style="padding:20px">Configurá los jugadores primero.</td></tr>';return;}
+  // columnas = las 10 fechas (FECHAS), filas = jugadores
+  let head='<thead><tr><th>Jugador</th>';
+  FECHAS.forEach(f=>{head+=`<th class="c" style="font-size:0.62rem">${f.tipo.replace('Grupos ','G').replace('16avos ','16-')}<br><span style="color:var(--green)">$${(APUESTAS[f.tipo]/1000)}k</span></th>`;});
+  head+='</tr></thead>';
+  let body='<tbody>';
+  names.forEach(name=>{
+    body+=`<tr><td style="font-weight:600;white-space:nowrap">${name}</td>`;
+    FECHAS.forEach(f=>{
+      const key=`${name}|${f.id}`;const pagado=STATE.pagos[key];
+      body+=`<td class="c"><div onclick="togglePago('${name}','${f.id}')" style="cursor:pointer;width:26px;height:26px;border-radius:6px;margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:0.9rem;border:2px solid ${pagado?'var(--green)':'var(--border)'};background:${pagado?'rgba(29,185,84,0.25)':'transparent'}">${pagado?'✅':''}</div></td>`;
+    });
+    body+='</tr>';
+  });
+  body+='</tbody>';
+  document.getElementById('pagosTable').innerHTML=head+body;
+}
+function togglePago(name,fid){const key=`${name}|${fid}`;if(STATE.pagos[key])delete STATE.pagos[key];else STATE.pagos[key]=true;renderPagos();}
+async function savePagos(){try{await kset('pagos',STATE.pagos);showToast('💵 Pagos guardados');}catch(e){showToast('❌ '+e.message,true);}}
 function showToast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');setTimeout(()=>t.classList.remove('show'),2800);}
 </script>
 </body>
