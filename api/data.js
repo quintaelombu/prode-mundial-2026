@@ -8,8 +8,12 @@ async function kvGet(key) {
     headers: { Authorization: `Bearer ${KV_TOKEN}` }
   });
   const d = await r.json();
-  if (!d.result) return null;
-  try { return JSON.parse(d.result); } catch { return d.result; }
+  if (d.result === null || d.result === undefined) return null;
+  let val = d.result;
+  while (typeof val === 'string') {
+    try { val = JSON.parse(val); } catch { break; }
+  }
+  return val;
 }
 
 async function kvSet(key, value) {
