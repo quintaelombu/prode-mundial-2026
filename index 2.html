@@ -99,8 +99,8 @@ header p{font-size:0.75rem;color:var(--muted);letter-spacing:2px;text-transform:
 <div class="toast" id="toast"></div>
 <script>
 const PIN='2026';
-const KV='https://aware-mink-143835.upstash.io';
-const TK='gQAAAAAAAjHbAAIgcDFkZDZmODNmZTlhOGE0OTIwYjY1Njg0ODJhYzRkYTYxNw';
+const KV='https://epic-possum-110301.upstash.io';
+const TK='gQAAAAAAAa7dAAIgcDE0YjA1MTkyYjRjYzM0NzU4YTNmM2RlYmYxMDkxYjUwNg';
 async function kget(k){const r=await fetch(`${KV}/get/${encodeURIComponent(k)}`,{headers:{Authorization:`Bearer ${TK}`}});const d=await r.json();if(!d.result)return null;let v=d.result;if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}if(typeof v==='string'){try{v=JSON.parse(v);}catch{}}return v;}
 async function kset(k,v){const r=await fetch(`${KV}/set/${encodeURIComponent(k)}`,{method:'POST',headers:{Authorization:`Bearer ${TK}`,'Content-Type':'application/json'},body:JSON.stringify(JSON.stringify(v))});return r.json();}
 const APUESTAS={'Grupos F1':10000,'Grupos F2':10000,'Grupos F3':10000,'16avos F1':15000,'16avos F2':15000,'16avos F3':15000,'Octavos':20000,'Cuartos':40000,'Semifinal':50000,'Final':100000};
