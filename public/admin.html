@@ -105,7 +105,18 @@ td{padding:11px 12px;font-size:0.95rem;}
   <div id="matchesDiv"></div>
 </div>
 <div id="tab-tabla" class="tab-panel">
-  <div class="flex" style="margin-bottom:14px;justify-content:space-between"><div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:3px">TABLA GENERAL</div><button class="btn sm" onclick="calcularTodo()">🔄 Actualizar</button></div>
+  <div class="flex" style="margin-bottom:14px;justify-content:space-between;flex-wrap:wrap;gap:10px">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:1.6rem;color:var(--gold);letter-spacing:3px">TABLA — FECHA ACTUAL</div>
+  <button class="btn sm" onclick="calcularTodo()">🔄 Actualizar</button>
+</div>
+<div class="card" style="margin-bottom:14px">
+  <h2>📅 Fecha en juego</h2>
+  <p class="hint">Seleccioná la fecha que está en juego ahora. La tabla mostrará solo los puntos de esa fecha.</p>
+  <select id="fechaActivaSelect" class="inp" style="margin-bottom:12px" onchange="cambiarFechaActiva(this.value)">
+    <option value="">— Seleccioná una fecha —</option>
+  </select>
+  <div id="fechaActivaLabel" style="font-size:0.85rem;color:var(--muted)"></div>
+</div>
   <div class="tabla-wrap"><table><thead><tr><th>#</th><th>Jugador</th><th class="c">Exactos</th><th class="c">Ganador</th><th class="c">Pts</th><th class="c">Fechas</th><th class="c">Ganado $</th></tr></thead><tbody id="tablaBody"></tbody></table></div>
 </div>
 <div id="tab-pozo" class="tab-panel">
@@ -137,12 +148,13 @@ f.push({id:'CUA',label:'Cuartos',tipo:'Cuartos',partidos:Array.from({length:4},(
 f.push({id:'SEMI',label:'Semifinales',tipo:'Semifinal',partidos:[{h:'SF1',a:'SF2',grupo:'Semifinal'},{h:'SF3',a:'SF4',grupo:'Semifinal'}]});
 f.push({id:'FIN',label:'🏆 Final',tipo:'Final',partidos:[{h:'Finalista 1',a:'Finalista 2',grupo:'Final'}]});return f;}
 const FECHAS=buildFechas();
-let STATE={players:[],results:{},pts:{},fechaWinners:{},allPreds:{},kickoffs:{},pagos:{}};
+let STATE={players:[],results:{},pts:{},fechaWinners:{},allPreds:{},kickoffs:{},pagos:{},fechaActiva:null};
 function checkAdmin(){if(document.getElementById('adminPwd').value===ADMIN_PWD){document.getElementById('adminLogin').style.display='none';loadAll();}else{showToast('❌ Contraseña incorrecta',true);}}
 document.getElementById('adminPwd').addEventListener('keydown',e=>{if(e.key==='Enter')checkAdmin();});
-function showTab(id,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='partidos')renderPartidos();if(id==='tabla')renderTabla();if(id==='pozo')renderPozo();if(id==='pagos')renderPagos();}
+function showTab(id,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='partidos')renderPartidos();if(id==='tabla'){initFechaSelect();renderTabla();}if(id==='pozo')renderPozo();if(id==='pagos')renderPagos();}
 async function loadAll(){try{STATE.players=await kget('players')||[];STATE.results=await kget('results')||{};STATE.pts=await kget('pts')||{};STATE.fechaWinners=await kget('fechaWinners')||{};STATE.kickoffs={...KICKOFFS_DEFAULT,...(await kget('kickoffs')||{})};
-    STATE.pagos=await kget('pagos')||{};STATE.allPreds={};for(const p of STATE.players){STATE.allPreds[p]=await kget(`preds:${p}`)||{};}renderSetup();showToast('✅ Datos cargados');}catch(e){showToast('❌ '+e.message,true);}}
+    STATE.pagos=await kget('pagos')||{};
+    STATE.fechaActiva=await kget('fechaActiva')||null;STATE.allPreds={};for(const p of STATE.players){STATE.allPreds[p]=await kget(`preds:${p}`)||{};}renderSetup();showToast('✅ Datos cargados');}catch(e){showToast('❌ '+e.message,true);}}
 function renderSetup(){const g=document.getElementById('pGrid');g.innerHTML='';for(let i=0;i<30;i++){const inp=document.createElement('input');inp.type='text';inp.className='inp';inp.placeholder=`Jugador ${i+1}`;inp.value=STATE.players[i]||'';inp.dataset.i=i;g.appendChild(inp);}
 document.getElementById('linkDisplay').textContent=`${location.origin}${location.pathname.replace('admin.html','')}`.replace(/\/$/,'')+'/';
 document.getElementById('statusDiv').innerHTML=`<div>👥 Jugadores: <strong style="color:var(--gold)">${STATE.players.length}</strong> → ${STATE.players.join(', ')||'—'}</div><div>⏰ Horarios cargados: <strong style="color:var(--gold)">${Object.keys(STATE.kickoffs).length}</strong></div><div>🔑 Código: <strong style="color:var(--gold)">2026</strong> · 💰 Alias: <strong style="color:var(--green)">emigal.sj</strong></div>`;}
@@ -150,7 +162,7 @@ async function savePlayers(){const players=Array.from(document.querySelectorAll(
 function copyLink(){navigator.clipboard.writeText(document.getElementById('linkDisplay').textContent).then(()=>showToast('✅ Copiado'));}
 function shareWA(){const link=document.getElementById('linkDisplay').textContent;const msg=`⚽ *Prode Mundial 2026*\n\n🔗 ${link}\n🔑 Código: *2026*\n💰 Alias: *emigal.sj*`;window.open(`https://wa.me/?text=${encodeURIComponent(msg)}`,'_blank');}
 function renderPartidos(){const names=STATE.players;if(!names.length){document.getElementById('matchesDiv').innerHTML='<div class="hint" style="padding:20px">Configurá los jugadores primero.</div>';return;}let html='';
-FECHAS.forEach(fecha=>{const ap=APUESTAS[fecha.tipo];html+=`<div class="fase-header"><span class="fase-title">${fecha.label}</span><span class="fase-apuesta">💰 Pozo: $${(ap*names.length).toLocaleString()}</span></div>`;let cg='';
+[FECHAS.find(f=>f.id===STATE.fechaActiva)].filter(Boolean).forEach(fecha=>{const ap=APUESTAS[fecha.tipo];html+=`<div class="fase-header"><span class="fase-title">${fecha.label}</span><span class="fase-apuesta">💰 Pozo: $${(ap*names.length).toLocaleString()}</span></div>`;let cg='';
 fecha.partidos.forEach((m,mi)=>{if(m.grupo!==cg){cg=m.grupo;if(fecha.id.startsWith('GRP'))html+=`<div class="grupo-label">— ${m.grupo} —</div>`;}
 const rk=`${fecha.id}_${mi}`;const res=STATE.results[rk]||{h:'',a:''};const ko=STATE.kickoffs[rk]||'';
 html+=`<div class="match-card"><div class="match-top"><div class="match-teams">${m.h} <span style="color:var(--muted)">vs</span> ${m.a}</div><div class="result-row"><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${res.h}" onchange="saveRes('${rk}','h',this.value)"><span class="sep">:</span><input class="score-inp" type="number" min="0" max="20" placeholder="—" value="${res.a}" onchange="saveRes('${rk}','a',this.value)"><span class="real-label">REAL</span></div></div>
@@ -164,7 +176,12 @@ function setKO(rk,val){if(val)STATE.kickoffs[rk]=val;else delete STATE.kickoffs[
 async function sembrarReales(){STATE.kickoffs={...KICKOFFS_DEFAULT};try{await kset('kickoffs',STATE.kickoffs);showToast('🌎 Horarios reales cargados');renderPartidos();renderSetup();}catch(e){showToast('❌ '+e.message,true);}}
 async function saveKickoffs(){try{await kset('kickoffs',STATE.kickoffs);showToast('⏰ Horarios guardados');renderSetup();}catch(e){showToast('❌ '+e.message,true);}}
 async function saveRes(rk,side,val){if(!STATE.results[rk])STATE.results[rk]={h:'',a:''};STATE.results[rk][side]=val;await kset('results',STATE.results);}
-async function calcularTodo(){const names=STATE.players;STATE.pts={};STATE.fechaWinners={};
+async function calcularTodo(){
+  if(!STATE.fechaActiva){showToast('❌ Seleccioná la fecha activa primero',true);return;}
+  const names=STATE.players;
+  // Limpiar solo los pts de la fecha activa
+  Object.keys(STATE.pts).forEach(k=>{if(k.startsWith(STATE.fechaActiva))delete STATE.pts[k];});
+  delete STATE.fechaWinners[STATE.fechaActiva];
 FECHAS.forEach(fecha=>{const ap=APUESTAS[fecha.tipo];fecha.partidos.forEach((m,mi)=>{const rk=`${fecha.id}_${mi}`;const res=STATE.results[rk];if(!res||res.h===''||res.a==='')return;const rh=parseInt(res.h),ra=parseInt(res.a),rw=rh>ra?'H':ra>rh?'A':'D';
 names.forEach((name,ni)=>{if(!STATE.pagos[`${name}|${fecha.id}`])return;const preds=STATE.allPreds[name]||{};const pred=preds[rk];if(!pred||pred.h===''||pred.a==='')return;const ph=parseInt(pred.h),pa=parseInt(pred.a),pw=ph>pa?'H':pa>ph?'A':'D';if(ph===rh&&pa===ra)STATE.pts[`${rk}_${ni}`]=3;else if(pw===rw)STATE.pts[`${rk}_${ni}`]=1;else STATE.pts[`${rk}_${ni}`]=0;});});
 const tieneRes=fecha.partidos.some((_,mi)=>{const r=STATE.results[`${fecha.id}_${mi}`];return r&&r.h!==''&&r.a!=='';});if(!tieneRes)return;
@@ -172,7 +189,32 @@ const totales=names.map((_,ni)=>{let t=0;fecha.partidos.forEach((_,mi)=>{const p
 const maxPts=Math.max(...totales);if(maxPts<=0)return;const winners=totales.map((t,ni)=>({ni,t})).filter(x=>x.t===maxPts);const share=Math.round((ap*names.length)/winners.length);
 STATE.fechaWinners[fecha.id]=winners.map(w=>({ni:w.ni,pts:w.t,amount:share}));});
 await kset('pts',STATE.pts);await kset('fechaWinners',STATE.fechaWinners);renderPartidos();renderTabla();renderPozo();showToast('🔢 Calculado y guardado');}
-function renderTabla(){const names=STATE.players;const scores=names.map((name,ni)=>{let pts=0,ex=0,win=0,fg=0,din=0;FECHAS.forEach(fecha=>{fecha.partidos.forEach((_,mi)=>{const p=STATE.pts[`${fecha.id}_${mi}_${ni}`];if(p===3){pts+=3;ex++;}else if(p===1){pts+=1;win++;}});});Object.values(STATE.fechaWinners).forEach(ws=>ws.forEach(w=>{if(w.ni===ni){fg++;din+=w.amount;}}));return{name,pts,ex,win,fg,din};});
+function initFechaSelect(){
+  const sel=document.getElementById('fechaActivaSelect');
+  sel.innerHTML='<option value="">— Seleccioná una fecha —</option>';
+  FECHAS.forEach(f=>{const o=document.createElement('option');o.value=f.id;o.textContent=f.label+' ($'+APUESTAS[f.tipo].toLocaleString()+')';if(STATE.fechaActiva===f.id)o.selected=true;sel.appendChild(o);});
+  updateFechaLabel();
+}
+async function cambiarFechaActiva(fid){
+  STATE.fechaActiva=fid||null;
+  await kset('fechaActiva',STATE.fechaActiva);
+  updateFechaLabel();
+  renderTabla();
+}
+function updateFechaLabel(){
+  const lbl=document.getElementById('fechaActivaLabel');if(!lbl)return;
+  if(!STATE.fechaActiva){lbl.textContent='Sin fecha seleccionada — la tabla no mostrará datos.';return;}
+  const f=FECHAS.find(x=>x.id===STATE.fechaActiva);
+  lbl.innerHTML=f?`Mostrando tabla de <strong style="color:var(--gold)">${f.label}</strong>. La tabla arranca de cero para esta fecha.`:'';
+}
+function renderTabla(){const names=STATE.players;
+  if(!STATE.fechaActiva){document.getElementById('tablaBody').innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Seleccioná la fecha activa arriba para ver la tabla.</td></tr>';return;}
+  const fechaActual=FECHAS.find(f=>f.id===STATE.fechaActiva);
+  if(!fechaActual){document.getElementById('tablaBody').innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Fecha no encontrada.</td></tr>';return;}
+  const scores=names.map((name,ni)=>{let pts=0,ex=0,win=0,fg=0,din=0;
+  fechaActual.partidos.forEach((_,mi)=>{const p=STATE.pts[`${fechaActual.id}_${mi}_${ni}`];if(p===3){pts+=3;ex++;}else if(p===1){pts+=1;win++;}});
+  const ws=STATE.fechaWinners[fechaActual.id];if(ws)ws.forEach(w=>{if(w.ni===ni){fg++;din+=w.amount;}});
+  return{name,pts,ex,win,fg,din};});
 scores.sort((a,b)=>b.pts-a.pts||b.ex-a.ex);
 document.getElementById('tablaBody').innerHTML=scores.length?scores.map((s,i)=>`<tr><td class="rk ${i===0?'rk1':i===1?'rk2':i===2?'rk3':''}">${i+1}</td><td style="font-weight:600">${s.name}${i===0&&s.pts>0?' 🏆':''}</td><td class="c" style="color:var(--green);font-family:Bebas Neue;font-size:1.1rem">${s.ex}</td><td class="c" style="color:var(--gold);font-family:Bebas Neue;font-size:1.1rem">${s.win}</td><td class="c pts-big">${s.pts}</td><td class="c">${s.fg}</td><td class="c money-cell">$${s.din.toLocaleString()}</td></tr>`).join(''):'<tr><td colspan="7" style="text-align:center;color:var(--muted);padding:28px">Sin datos</td></tr>';}
 function renderPozo(){const names=STATE.players;let html='';FECHAS.forEach(fecha=>{const ap=APUESTAS[fecha.tipo],pozo=ap*names.length;const ws=STATE.fechaWinners[fecha.id];let wHtml='<span style="color:var(--muted);font-size:0.8rem">Pendiente</span>';if(ws&&ws.length)wHtml=ws.map(w=>`<span class="winner-chip">${names[w.ni]||'?'} +$${w.amount.toLocaleString()}</span>`).join(' ');
