@@ -140,9 +140,8 @@ function buildFechas(){const f=[];
   return f;}
 const FECHAS=buildFechas();
 let STATE={players:[],results:{},pts:{},fechaWinners:{},allPreds:{},kickoffs:{},pagos:{},fechaActiva:null};
-}
 
-document.addEventListener('DOMContentLoaded',()=>{document.getElementById('adminLogin').style.display='none';loadAll();});
+
 function showTab(id,btn){document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('tab-'+id).classList.add('active');if(btn)btn.classList.add('active');if(id==='partidos')renderPartidos();if(id==='tabla'){initFechaSelect();renderTabla();}if(id==='pozo')renderPozo();if(id==='pagos')renderPagos();}
 async function loadAll(){try{STATE.players=await kget('players')||[];STATE.results=await kget('results')||{};STATE.pts=await kget('pts')||{};STATE.fechaWinners=await kget('fechaWinners')||{};STATE.kickoffs={...KICKOFFS_DEFAULT,...KICKOFFS_S16,...(await kget('kickoffs')||{})};
     STATE.pagos=await kget('pagos')||{};
@@ -235,6 +234,7 @@ function togglePago(name,fid){const key=`${name}|${fid}`;if(STATE.pagos[key])del
 async function savePagos(){try{await kset('pagos',STATE.pagos);showToast('💵 Pagos guardados');}catch(e){showToast('❌ '+e.message,true);}}
 function showToast(msg,err=false){const t=document.getElementById('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');setTimeout(()=>t.classList.remove('show'),2800);}
 </script>
+<script>document.getElementById('adminLogin').style.display='none';loadAll();</script>
 </body>
 </html>
 

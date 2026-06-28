@@ -132,8 +132,19 @@ const FECHAS=buildFechas();
 let currentPlayer=null,myPreds={},players=[],kickoffs={},pagos={},allPreds={};
 function isLocked(key){const ko=kickoffs[key];if(!ko)return false;return Date.now()>=new Date(ko).getTime();}
 
-async function loadPlayers(){try{players=await kget('players')||[];kickoffs={...KICKOFFS_DEFAULT,...KICKOFFS_S16,...(await kget('kickoffs')||{})};
-    pagos=await kget('pagos')||{};if(!players.length){showToast('⚠️ No hay jugadores aún',true);return;}showScreen('select');document.getElementById('playerList').innerHTML=players.map(p=>`<button class="player-opt" onclick="selectPlayer('${p}')">${p}</button>`).join('');}catch(e){showToast('❌ '+e.message,true);}}
+async function loadPlayers(){
+  try{
+    players=await kget('players')||[];
+    kickoffs={...KICKOFFS_DEFAULT,...KICKOFFS_S16,...(await kget('kickoffs')||{})};
+    pagos=await kget('pagos')||{};
+    if(!players.length){showToast('⚠️ No hay jugadores. Pedile al admin que los cargue.',true);return;}
+    showScreen('select');
+    document.getElementById('playerList').innerHTML=players.map(p=>`<button class="player-opt" onclick="selectPlayer('${p}')">${p}</button>`).join('');
+  }catch(e){
+    console.error('Error loadPlayers:',e);
+    showToast('❌ Error: '+e.message,true);
+  }
+}
 async function selectPlayer(name){currentPlayer=name;myPreds=await kget(`preds:${name}`)||{};
   pagos=await kget('pagos')||{};
   allPreds={};for(const p of players){allPreds[p]=(p===name)?myPreds:(await kget(`preds:${p}`)||{});}
